@@ -14,10 +14,10 @@
 </p>
 </div>
 
-📄 Resumo do Projeto </p>
+Resumo do Projeto </p>
 Este sistema foi desenvolvido como requisito parcial para a obtenção da terceira nota na disciplina de Engenharia de Software, servindo como instrumento de avaliação técnica e prática. O objetivo deste projeto é demonstrar a proficiência na aplicação de conceitos fundamentais de engenharia de software, incluindo arquitetura de sistemas distribuídos, modelagem relacional de dados, implementação de APIs RESTful e criação de interfaces SPA (Single Page Application) modernas e responsivas.
 
-🏗️ Arquitetura e Stack Técnica </p>
+Arquitetura e Stack Técnica </p>
 A aplicação foi construída sobre uma arquitetura desacoplada (Client-Server), utilizando:
 
 Backend: ASP.NET Core Web API (NET 10.0) com padrão Repository/Controller.
@@ -28,7 +28,7 @@ Persistência: Entity Framework Core com suporte a Migrations e SQLite.
 
 Testes: Suíte de testes de unidade e integração utilizando xUnit.
 
-🧩 Implementações de Engenharia de Software
+Implementações de Engenharia de Software
 1. Lógica de Negócio: Itens Externos
 Diferente de sistemas de varejo comum, este projeto implementa uma regra de "IsExternal". Peças fornecidas pelo cliente são registradas para fins de auditoria e garantia, mas são isoladas por meio de algoritmos de filtragem para não inflarem o patrimônio líquido da empresa em relatórios financeiros.
 
@@ -38,7 +38,7 @@ Para otimizar a visualização de grandes volumes de dados, foi implementada uma
 3. Persistência de Dados e Segurança
 Utilização do conceito de Soft Delete em Ordens de Serviço. Os dados excluídos são mantidos em uma camada lógica de lixeira, permitindo a recuperação de registros e garantindo a rastreabilidade histórica exigida em auditorias financeiras.
 
-💻 Instruções de Instalação e Execução
+Instruções de Instalação e Execução
 Utilize os comandos abaixo no terminal para clonar, configurar e inicializar o ambiente de desenvolvimento.
 
 <div align="left">
@@ -57,7 +57,7 @@ Utilize os comandos abaixo no terminal para clonar, configurar e inicializar o a
 
 </div>
 
-🧪 Verificação de Qualidade (Q.A.)
+Verificação de Qualidade (Q.A.)
 O projeto foi submetido a testes rigorosos de integração para validar as regras de negócio críticas, como cálculos de inadimplência e baixas automáticas de estoque.
 
 <div align="left">
