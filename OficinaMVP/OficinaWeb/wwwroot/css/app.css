@@ -1,0 +1,92 @@
+html, body {
+    background-color: #000000;
+    color: #e0e0e0;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.page {
+    background-color: #000000;
+    display: flex;
+    justify-content: center;
+}
+
+main {
+    flex: 1;
+    background-color: #000000;
+    padding: 2rem;
+    max-width: 1200px;
+}
+
+a, .btn-link {
+    color: #ff6600;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background-color: #ff6600;
+    border: none;
+    color: #000;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+input, select, .form-control, .form-select {
+    background-color: #1a1a1a !important;
+    border: 1px solid #333;
+    color: #fff !important;
+}
+
+    input::placeholder, .form-control::placeholder {
+        color: #aaaaaa !important;
+        opacity: 1;
+    }
+
+.table {
+    color: #ddd;
+}
+
+@media print {
+    @page {
+        size: 184mm 267mm;
+        margin: 0;
+    }
+
+    html, body {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+
+        body * {
+            visibility: hidden;
+        }
+
+    .no-print {
+        display: none !important;
+    }
+
+    #print-section, #print-section * {
+        visibility: visible !important;
+    }
+
+    #print-section {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 184mm;
+        height: 267mm;
+        display: block !important;
+        background-color: #ffffff !important;
+        z-index: 9999;
+    }
+
+    .print-data {
+        position: absolute;
+        color: #000000 !important;
+        font-family: Arial, sans-serif;
+        font-size: 10pt;
+        white-space: nowrap;
+        z-index: 10;
+    }
+}

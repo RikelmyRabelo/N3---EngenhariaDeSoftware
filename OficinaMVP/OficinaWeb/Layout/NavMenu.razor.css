@@ -1,0 +1,44 @@
+/* Fundo do Menu: Preto Puro */
+.sidebar {
+    background-color: #000000;
+    background-image: linear-gradient(180deg, #000000 0%, #1a1a1a 100%);
+    color: white;
+}
+
+/* Marca/Logo */
+.navbar-brand {
+    color: #ff6600 !important; /* Laranja da Marca */
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Ícones padrão */
+.bi {
+    color: #999; /* Cinza discreto quando não selecionado */
+}
+
+/* Link Normal */
+.nav-item ::deep a {
+    color: #d1d1d1;
+    transition: all 0.3s;
+}
+
+    /* Efeito Hover (passar o mouse) */
+    .nav-item ::deep a:hover {
+        background-color: rgba(255, 102, 0, 0.1); /* Laranja bem suave */
+        color: #ff6600;
+    }
+
+    /* --- O NOVO ACTIVE (Laranja) --- */
+    .nav-item ::deep a.active {
+        background-color: #ff6600; /* Laranja Vibrante */
+        color: black; /* Texto preto para contraste máximo */
+        font-weight: bold;
+        box-shadow: 0 0 15px rgba(255, 102, 0, 0.4); /* Brilho Laranja */
+        border-right: 4px solid white;
+    }
+
+        .nav-item ::deep a.active .bi {
+            color: black;
+        }

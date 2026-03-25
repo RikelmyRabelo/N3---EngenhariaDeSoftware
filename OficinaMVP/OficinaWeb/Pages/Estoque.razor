@@ -1,0 +1,616 @@
+﻿@page "/estoque"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@using System.Net.Http.Json
+@using System.Text.Json
+
+<PageTitle>Catálogo & Estoque - FREITAS AUTOCENTER</PageTitle>
+
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3 no-print" style="z-index: 1100;">
+    @if (mostrarToast)
+    {
+        <div class="toast show align-items-center text-white @(toastTipo == "erro" ? "bg-danger" : "bg-success") border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body fw-bold">
+                    <i class="bi @(toastTipo == "erro" ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill") me-2"></i>
+                    @toastMensagem
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="() => mostrarToast = false"></button>
+            </div>
+        </div>
+    }
+</div>
+
+@if (mostrarModalExclusao)
+{
+    <div class="modal fade show d-block no-print" style="background-color: rgba(0,0,0,0.8); z-index: 1050;" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-white border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title fw-bold text-danger"><i class="bi bi-trash-fill me-2"></i>Confirmar Exclusão</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => mostrarModalExclusao = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Deseja remover <strong>@produtoParaExcluir?.name</strong> do catálogo?</p>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-outline-light" @onclick="() => mostrarModalExclusao = false">Cancelar</button>
+                    <button type="button" class="btn btn-danger fw-bold" @onclick="ConfirmarExclusao">EXCLUIR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (mostrarModalEdicao)
+{
+    <div class="modal fade show d-block no-print" style="background-color: rgba(0,0,0,0.8); z-index: 1050;" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-white border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title fw-bold text-warning"><i class="bi bi-pencil-square me-2"></i>Editar Produto</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => mostrarModalEdicao = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="small text-secondary">Código</label>
+                            <input class="form-control bg-dark text-white border-secondary text-uppercase" @bind="produtoEmEdicao.code" />
+                        </div>
+                        <div class="col-md-8">
+                            <label class="small text-secondary">Nome</label>
+                            <input class="form-control bg-dark text-white border-secondary" @bind="produtoEmEdicao.name" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="small text-secondary">Preço de Venda</label>
+                            <input type="number" step="0.01" class="form-control bg-dark text-white border-secondary" @bind="produtoEmEdicao.salePrice" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="small text-secondary">Estoque Mínimo</label>
+                            <input type="number" class="form-control bg-dark text-white border-secondary" @bind="produtoEmEdicao.minimumStock" />
+                        </div>
+                        <div class="col-md-12">
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" @bind="produtoEmEdicao.isExternal" id="editExterno">
+                                <label class="form-check-label text-white" for="editExterno">
+                                    Item comprado por fora (Não conta no patrimônio)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-outline-light" @onclick="() => mostrarModalEdicao = false">Cancelar</button>
+                    <button type="button" class="btn btn-warning fw-bold text-dark" @onclick="ConfirmarEdicao">SALVAR ALTERAÇÕES</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="container py-4 no-print">
+    <div class="row align-items-center mb-4 position-relative">
+        <div class="col-md-2">
+            <a href="/" class="btn btn-outline-secondary border-0 text-white">
+                <i class="bi bi-arrow-left me-2"></i>Painel
+            </a>
+        </div>
+        <div class="col-md-5 text-center">
+            <h2 class="fw-bold text-uppercase mb-0" style="color: #ff6600;">
+                <i class="bi bi-box-seam-fill me-2"></i>Gerenciamento
+            </h2>
+        </div>
+        <div class="col-md-5 text-end d-flex gap-2 justify-content-end">
+            <button class="btn btn-warning fw-bold shadow-sm" @onclick='() => Nav.NavigateTo("lista-compras")'>
+                <i class="bi bi-cart-check-fill me-1"></i>
+                LISTA DE COMPRAS
+            </button>
+
+            <button class="btn btn-light fw-bold shadow-sm" @onclick="ImprimirRelatorio">
+                <i class="bi bi-file-pdf-fill text-danger me-2"></i>
+                @(abaAtiva == "pecas" ? "PDF ESTOQUE" : "PDF MÃO DE OBRA")
+            </button>
+        </div>
+    </div>
+
+    <ul class="nav nav-pills nav-fill mb-4 p-1 bg-black rounded border border-secondary">
+        <li class="nav-item">
+            <button class="nav-link @(abaAtiva == "pecas" ? "active bg-warning text-dark fw-bold" : "text-white")" @onclick='() => abaAtiva = "pecas"'>
+                <i class="bi bi-tools me-2"></i>PEÇAS EM ESTOQUE
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(abaAtiva == "servicos" ? "active bg-warning text-dark fw-bold" : "text-white")" @onclick='() => abaAtiva = "servicos"'>
+                <i class="bi bi-person-gear me-2"></i>CATÁLOGO DE MÃO DE OBRA
+            </button>
+        </li>
+    </ul>
+
+    @if (abaAtiva == "pecas")
+    {
+        @if (valoresHistoricos != null)
+        {
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card bg-dark border-secondary text-white shadow-sm h-100">
+                        <div class="card-body p-3 text-center">
+                            <small class="text-secondary fw-bold text-uppercase d-block mb-1">Valor em Prateleira (Atual)</small>
+                            <h4 class="fw-bold text-success mb-0">R$ @valoresHistoricos.currentInventoryValue.ToString("N2")</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-dark border-secondary text-white shadow-sm h-100">
+                        <div class="card-body p-3 text-center">
+                            <small class="text-secondary fw-bold text-uppercase d-block mb-1">Total Saídas (O.S.)</small>
+                            <h4 class="fw-bold text-info mb-0">R$ @valoresHistoricos.totalExitedValue.ToString("N2")</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-dark border-secondary text-white shadow-sm h-100" style="border-left: 4px solid #ff6600 !important;">
+                        <div class="card-body p-3 text-center">
+                            <small class="text-warning fw-bold text-uppercase d-block mb-1">Patrimônio Total Histórico</small>
+                            <h4 class="fw-bold text-white mb-0">R$ @valoresHistoricos.totalHistoricalValue.ToString("N2")</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="card border-0 shadow-sm mb-5" style="background-color: #111; border-top: 4px solid #ffeb3b !important;">
+            <div class="card-body p-4">
+                <h5 class="mb-3 fw-bold" style="color: #ffeb3b;">Novo Produto</h5>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-2">
+                        <label class="small text-white-50">Código *</label>
+                        <input class="form-control bg-dark text-white border-secondary text-uppercase" @bind="novoProduto.code" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="small text-white-50">Nome *</label>
+                        <input class="form-control bg-dark text-white border-secondary" @bind="novoProduto.name" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="small text-white-50">R$ Preço *</label>
+                        <input type="number" step="0.01" class="form-control bg-dark text-white border-secondary" @bind="novoProduto.salePrice" />
+                    </div>
+                    <div class="col-md-1">
+                        <label class="small text-white-50">Qtd *</label>
+                        <input type="number" class="form-control bg-dark text-white border-secondary" @bind="novoProduto.stockQuantity" />
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" @bind="novoProduto.isExternal" id="chkExterno">
+                            <label class="form-check-label text-white small" for="chkExterno">Item Externo</label>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn w-100 fw-bold btn-warning text-dark" @onclick="SalvarProduto">ADICIONAR</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (produtos != null)
+        {
+            <div class="input-group mb-3">
+                <span class="input-group-text bg-dark text-secondary border-secondary"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control bg-dark text-white border-secondary" placeholder="Buscar peça por nome ou código..." @bind="termoBusca" @bind:event="oninput" />
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle">
+                    <thead style="border-bottom: 2px solid #ffeb3b;">
+                        <tr>
+                            <th style="color: #ffeb3b; width: 150px;">Código</th>
+                            <th style="color: #ffeb3b;">Nome</th>
+                            <th style="color: #ffeb3b; width: 150px;">Preço</th>
+                            <th style="color: #ffeb3b; width: 150px;" class="text-center">Estoque</th>
+                            <th class="text-end" style="width: 120px; color: #ffeb3b;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            var grupos = produtosFiltrados.GroupBy(p => p.name.Trim().ToUpper());
+                        }
+
+                        @foreach (var grupo in grupos)
+                        {
+                            var itens = grupo.ToList();
+                            var nomeExibicao = itens.First().name;
+                            var totalEstoque = itens.Sum(i => i.stockQuantity ?? 0);
+                            var temVarios = itens.Count > 1;
+                            var estaExpandido = expandedNames.Contains(grupo.Key);
+
+                            @if (temVarios)
+                            {
+                                <tr @onclick="() => ToggleGroup(grupo.Key)" style="cursor: pointer; background-color: rgba(255, 235, 59, 0.05);">
+                                    <td style="color: #ff8800;" class="small"><em>Múltiplos</em></td>
+                                    <td class="fw-bold" style="color: #ff8800;">
+                                        <i class="bi @(estaExpandido ? "bi-chevron-down" : "bi-chevron-right") me-2"></i>
+                                        @nomeExibicao 
+                                        <span class="badge rounded-pill bg-secondary ms-2" style="font-size: 0.7rem; color: #fff;">@itens.Count códigos</span>
+                                    </td>
+                                    <td class="text-muted">---</td>
+                                    <td class="text-center fw-bold" style="color: #ff8800;">@totalEstoque</td>
+                                    <td class="text-end">
+                                        <span class="text-secondary small">@(estaExpandido ? "Clique para ocultar" : "Clique para ver")</span>
+                                    </td>
+                                </tr>
+
+                                @if (estaExpandido)
+                                {
+                                    @foreach (var p in itens)
+                                    {
+                                        var qtd = p.stockQuantity ?? 0;
+                                        var rowColor = qtd <= 0 ? "#ff4444" : (qtd <= p.minimumStock ? "#ff8800" : "#fff");
+                                        
+                                        <tr style="background-color: rgba(255,255,255,0.02);">
+                                            <td style="color: @rowColor; padding-left: 30px;" class="small">@p.code.ToUpper()</td>
+                                            <td style="color: @rowColor; padding-left: 30px;">
+                                                <i class="bi bi-arrow-return-right me-2 text-secondary"></i>
+                                                @p.name
+                                                @if (p.isExternal) { <span class="badge bg-secondary ms-2" style="font-size: 0.6rem;">EXTERNO</span> }
+                                            </td>
+                                            <td style="color: @rowColor;">R$ @p.salePrice?.ToString("N2")</td>
+                                            <td class="text-center">
+                                                <div class="d-flex align-items-center justify-content-center gap-2">
+                                                    <button class="btn btn-sm text-white" @onclick="() => AjustarEstoque(p, -1)" @onclick:stopPropagation><i class="bi bi-dash-lg"></i></button>
+                                                    <span class="fw-bold" style="min-width: 30px; color: @rowColor;">@qtd</span>
+                                                    <button class="btn btn-sm text-white" @onclick="() => AjustarEstoque(p, 1)" @onclick:stopPropagation><i class="bi bi-plus-lg"></i></button>
+                                                </div>
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-warning border-0" @onclick="() => AbrirModalEdicao(p)" @onclick:stopPropagation><i class="bi bi-pencil-fill"></i></button>
+                                                <button class="btn btn-sm btn-outline-danger border-0" @onclick="() => SolicitarExclusao(p)" @onclick:stopPropagation><i class="bi bi-trash3-fill"></i></button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                var p = itens.First();
+                                var qtd = p.stockQuantity ?? 0;
+                                var rowColor = qtd <= 0 ? "#ff4444" : (qtd <= p.minimumStock ? "#ff8800" : "#fff");
+                                <tr>
+                                    <td style="color: @rowColor;">@p.code.ToUpper()</td>
+                                    <td style="color: @rowColor;">
+                                        @p.name
+                                        @if (p.isExternal) { <span class="badge bg-secondary ms-2" style="font-size: 0.6rem;">EXTERNO</span> }
+                                    </td>
+                                    <td style="color: @rowColor;">R$ @p.salePrice?.ToString("N2")</td>
+                                    <td class="text-center">
+                                        <div class="d-flex align-items-center justify-content-center gap-2">
+                                            <button class="btn btn-sm text-white" @onclick="() => AjustarEstoque(p, -1)"><i class="bi bi-dash-lg"></i></button>
+                                            <span class="fw-bold" style="min-width: 30px; color: @rowColor;">@qtd</span>
+                                            <button class="btn btn-sm text-white" @onclick="() => AjustarEstoque(p, 1)"><i class="bi bi-plus-lg"></i></button>
+                                        </div>
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-warning border-0" @onclick="() => AbrirModalEdicao(p)"><i class="bi bi-pencil-fill"></i></button>
+                                        <button class="btn btn-sm btn-outline-danger border-0" @onclick="() => SolicitarExclusao(p)"><i class="bi bi-trash3-fill"></i></button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @if (listaAuditoria != null && listaAuditoria.Any())
+        {
+            <div class="mt-5 pt-4 border-top border-secondary">
+                <h5 class="text-white fw-bold mb-3">
+                    <i class="bi bi-journal-check me-2 text-info"></i>Conferência de Saídas (Auditoria)
+                </h5>
+                <div class="table-responsive shadow-sm" style="max-height: 400px; overflow-y: auto; border: 1px solid #333; border-radius: 8px;">
+                    <table class="table table-dark table-sm table-hover mb-0">
+                        <thead class="sticky-top bg-dark" style="z-index: 1;">
+                            <tr class="text-secondary" style="border-bottom: 2px solid #444;">
+                                <th class="ps-3 py-2">Data</th>
+                                <th class="py-2">O.S.</th>
+                                <th class="py-2">Produto / Descrição</th>
+                                <th class="text-center py-2">Qtd</th>
+                                <th class="text-end pe-3 py-2">Valor na Saída</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in listaAuditoria)
+                            {
+                                <tr>
+                                    <td class="ps-3 text-secondary">@item.data.ToString("dd/MM/yyyy")</td>
+                                    <td class="text-info fw-bold">#@item.osId</td>
+                                    <td class="text-white-50">@item.descricao</td>
+                                    <td class="text-center">@item.quantidade</td>
+                                    <td class="text-end pe-3 text-success fw-bold">R$ @item.valorTotal.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <small class="text-muted mt-2 d-block">* Itens externos são ignorados nesta lista e nos totais financeiros.</small>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm mb-5" style="background-color: #111; border-top: 4px solid #00bcff !important;">
+            <div class="card-body p-4">
+                <h5 class="mb-3 fw-bold" style="color: #00bcff;">Novo Serviço (Mão de Obra)</h5>
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <input class="form-control bg-dark text-white border-secondary" @bind="novoServico.Name" placeholder="Ex: Limpeza de Bicos *" />
+                    </div>
+                    <div class="col-md-3">
+                        <input type="number" step="0.01" class="form-control bg-dark text-white border-secondary" @bind="novoServico.DefaultPrice" placeholder="R$ Valor Base *" />
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn w-100 fw-bold btn-info text-dark" @onclick="SalvarServico">CADASTRAR</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-dark table-hover align-middle">
+                <thead style="border-bottom: 2px solid #00bcff;">
+                    <tr>
+                        <th style="color: #00bcff;">Descrição do Serviço</th>
+                        <th style="color: #00bcff;" class="text-end">Preço Sugerido</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (servicosCatalogo != null)
+                    {
+                        @foreach (var s in servicosCatalogo)
+                        {
+                            <tr>
+                                <td>@s.Name</td>
+                                <td class="text-end text-success fw-bold">R$ @s.DefaultPrice.ToString("N2")</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-danger border-0" @onclick="() => ExcluirServico(s.Id)"><i class="bi bi-trash3-fill"></i></button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="print-only">
+    <div style="text-align: center; border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 20px;">
+        <h2 style="margin: 0; font-size: 22pt;">FREITAS AUTOCENTER</h2>
+        <h3 style="margin: 5px 0;">
+            @(abaAtiva == "pecas" ? "RELATÓRIO DE ESTOQUE" : "CATÁLOGO DE MÃO DE OBRA")
+        </h3>
+        <p style="font-size: 10pt;">Gerado em: @DateTime.Now.ToString("dd/MM/yyyy HH:mm")</p>
+    </div>
+
+    @if (abaAtiva == "pecas" && produtos != null)
+    {
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    <th style="border: 1px solid black; padding: 8px; text-align: left;">CÓD</th>
+                    <th style="border: 1px solid black; padding: 8px; text-align: left;">DESCRIÇÃO</th>
+                    <th style="border: 1px solid black; padding: 8px; text-align: center;">QTD</th>
+                    <th style="border: 1px solid black; padding: 8px; text-align: right;">VLR. UNIT</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in produtos.OrderBy(x => x.name))
+                {
+                    <tr>
+                        <td style="border: 1px solid black; padding: 8px;">@p.code.ToUpper()</td>
+                        <td style="border: 1px solid black; padding: 8px;">@p.name @(p.isExternal ? "(EXTERNO)" : "")</td>
+                        <td style="border: 1px solid black; padding: 8px; text-align: center;">@p.stockQuantity</td>
+                        <td style="border: 1px solid black; padding: 8px; text-align: right;">R$ @(p.salePrice?.ToString("N2") ?? "0,00")</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr style="background-color: #eee; font-weight: bold;">
+                    <td colspan="3" style="border: 1px solid black; padding: 10px; text-align: right;">VALOR TOTAL EM PRATELEIRA:</td>
+                    <td style="border: 1px solid black; padding: 10px; text-align: right;">R$ @produtos.Sum(p => (p.stockQuantity ?? 0) * (p.salePrice ?? 0)).ToString("N2")</td>
+                </tr>
+            </tfoot>
+        </table>
+    }
+    else if (abaAtiva == "servicos" && servicosCatalogo != null)
+    {
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    <th style="border: 1px solid black; padding: 8px; text-align: left;">DESCRIÇÃO DO SERVIÇO</th>
+                    <th style="border: 1px solid black; padding: 8px; text-align: right;">PREÇO SUGERIDO</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in servicosCatalogo.OrderBy(x => x.Name))
+                {
+                    <tr>
+                        <td style="border: 1px solid black; padding: 8px;">@s.Name</td>
+                        <td style="border: 1px solid black; padding: 8px; text-align: right;">R$ @s.DefaultPrice.ToString("N2")</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr style="background-color: #eee; font-weight: bold;">
+                    <td style="border: 1px solid black; padding: 10px; text-align: right;">SOMA TOTAL DOS SERVIÇOS:</td>
+                    <td style="border: 1px solid black; padding: 10px; text-align: right;">R$ @servicosCatalogo.Sum(s => s.DefaultPrice).ToString("N2")</td>
+                </tr>
+            </tfoot>
+        </table>
+    }
+</div>
+
+@* css *@
+<style>
+    .nav-pills .nav-link { border-radius: 0; }
+    .table-dark { --bs-table-bg: #000; }
+    .print-only { display: none; }
+    @@media print {
+        body * { visibility: hidden; }
+        .no-print, .sidebar, .top-row, .nav, .card, .btn, .input-group, hr { 
+            display: none !important; 
+        }
+        .print-only, .print-only * { visibility: visible !important; }
+        .print-only { display: block !important; position: absolute; left: 0; top: 0; width: 100%; background-color: white !important; color: black !important; }
+        table { width: 100%; color: black !important; }
+        th, td { border: 1px solid black !important; }
+    }
+</style>
+
+@code {
+    private string ApiUrl = "https://localhost:7082";
+    private string abaAtiva = "pecas";
+
+    private HashSet<string> expandedNames = new();
+
+    private void ToggleGroup(string nameKey)
+    {
+        if (expandedNames.Contains(nameKey)) expandedNames.Remove(nameKey);
+        else expandedNames.Add(nameKey);
+    }
+
+    public class ProductDTO { 
+        public int id { get; set; } 
+        public string code { get; set; } = ""; 
+        public string name { get; set; } = ""; 
+        public decimal? salePrice { get; set; } 
+        public int? stockQuantity { get; set; } 
+        public int minimumStock { get; set; } = 5; 
+        public bool isExternal { get; set; }
+    }
+    public class LaborServiceDTO { public int Id { get; set; } public string Name { get; set; } = ""; public decimal DefaultPrice { get; set; } }
+    public class HistoricalValueDTO { public decimal currentInventoryValue { get; set; } public decimal totalExitedValue { get; set; } public decimal totalHistoricalValue { get; set; } }
+    public class AuditItemDTO { public int osId { get; set; } public DateTime data { get; set; } public string descricao { get; set; } = ""; public int quantidade { get; set; } public decimal valorTotal { get; set; } }
+
+    private List<ProductDTO>? produtos;
+    private List<LaborServiceDTO>? servicosCatalogo;
+    private HistoricalValueDTO? valoresHistoricos;
+    private List<AuditItemDTO>? listaAuditoria;
+
+    private ProductDTO novoProduto = new();
+    private ProductDTO produtoEmEdicao = new();
+    private LaborServiceDTO novoServico = new();
+
+    bool mostrarToast = false;
+    string toastMensagem = "";
+    string toastTipo = "sucesso";
+    bool mostrarModalExclusao = false;
+    bool mostrarModalEdicao = false;
+    ProductDTO? produtoParaExcluir;
+    string termoBusca = "";
+
+    List<ProductDTO> produtosFiltrados => produtos?
+        .Where(p => string.IsNullOrEmpty(termoBusca) || p.code.Contains(termoBusca, StringComparison.OrdinalIgnoreCase) || p.name.Contains(termoBusca, StringComparison.OrdinalIgnoreCase))
+        .ToList() ?? new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Carregar();
+        await CarregarServicos();
+        await CarregarValoresHistoricos();
+        await CarregarAuditoria();
+    }
+
+    private async Task Carregar() => produtos = await Http.GetFromJsonAsync<List<ProductDTO>>($"{ApiUrl}/api/products");
+    private async Task CarregarServicos() => servicosCatalogo = await Http.GetFromJsonAsync<List<LaborServiceDTO>>($"{ApiUrl}/api/laborservices");
+    private async Task CarregarValoresHistoricos() => valoresHistoricos = await Http.GetFromJsonAsync<HistoricalValueDTO>($"{ApiUrl}/api/products/historical-value");
+    private async Task CarregarAuditoria() => listaAuditoria = await Http.GetFromJsonAsync<List<AuditItemDTO>>($"{ApiUrl}/api/products/audit-exited-items");
+
+    private async void MostrarSucesso(string msg)
+    {
+        toastMensagem = msg; toastTipo = "sucesso"; mostrarToast = true; StateHasChanged();
+        await Task.Delay(3000); mostrarToast = false; StateHasChanged();
+    }
+
+    private async Task SalvarProduto()
+    {
+        if (string.IsNullOrWhiteSpace(novoProduto.code) || novoProduto.salePrice == null) return;
+        novoProduto.code = novoProduto.code.ToUpper();
+        await Http.PostAsJsonAsync($"{ApiUrl}/api/products", novoProduto);
+        novoProduto = new(); 
+        await Carregar(); 
+        await CarregarValoresHistoricos();
+        await CarregarAuditoria();
+        MostrarSucesso("Peça cadastrada!");
+    }
+
+    private async Task AjustarEstoque(ProductDTO p, int delta)
+    {
+        p.stockQuantity = (p.stockQuantity ?? 0) + delta;
+        await Http.PutAsJsonAsync($"{ApiUrl}/api/products/{p.id}", p);
+        await CarregarValoresHistoricos();
+        StateHasChanged();
+    }
+
+    private void AbrirModalEdicao(ProductDTO p)
+    {
+        produtoEmEdicao = new ProductDTO
+        {
+            id = p.id,
+            code = p.code,
+            name = p.name,
+            salePrice = p.salePrice,
+            stockQuantity = p.stockQuantity,
+            minimumStock = p.minimumStock,
+            isExternal = p.isExternal
+        };
+        mostrarModalEdicao = true;
+    }
+
+    private async Task ConfirmarEdicao()
+    {
+        if (string.IsNullOrWhiteSpace(produtoEmEdicao.code)) return;
+        
+        var res = await Http.PutAsJsonAsync($"{ApiUrl}/api/products/{produtoEmEdicao.id}", produtoEmEdicao);
+        if (res.IsSuccessStatusCode)
+        {
+            mostrarModalEdicao = false;
+            await Carregar();
+            await CarregarValoresHistoricos();
+            await CarregarAuditoria();
+            MostrarSucesso("Produto atualizado!");
+        }
+    }
+
+    private void SolicitarExclusao(ProductDTO p) { produtoParaExcluir = p; mostrarModalExclusao = true; }
+
+    private async Task ConfirmarExclusao()
+    {
+        await Http.DeleteAsync($"{ApiUrl}/api/products/{produtoParaExcluir?.id}");
+        mostrarModalExclusao = false; 
+        await Carregar(); 
+        await CarregarValoresHistoricos();
+        await CarregarAuditoria();
+        MostrarSucesso("Produto removido.");
+    }
+
+    private async Task SalvarServico()
+    {
+        if (string.IsNullOrWhiteSpace(novoServico.Name)) return;
+        await Http.PostAsJsonAsync($"{ApiUrl}/api/laborservices", novoServico);
+        novoServico = new(); await CarregarServicos(); MostrarSucesso("Serviço adicionado ao catálogo!");
+    }
+
+    private async Task ExcluirServico(int id)
+    {
+        await Http.DeleteAsync($"{ApiUrl}/api/laborservices/{id}");
+        await CarregarServicos(); MostrarSucesso("Serviço removido.");
+    }
+
+    private async Task ImprimirRelatorio()
+    {
+        await Task.Delay(200);
+        await JS.InvokeVoidAsync("window.print");
+    }
+}

@@ -1,0 +1,248 @@
+﻿@page "/lista-compras"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<div class="container mt-4 no-print">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-uppercase" style="color: #ff6600;">
+            <i class="bi bi-cart-check me-2"></i>Lista de Compras
+        </h2>
+        <button class="btn btn-outline-secondary border-0 text-white" @onclick='() => Nav.NavigateTo("estoque")'>
+            <i class="bi bi-arrow-left me-2"></i>Voltar ao Estoque
+        </button>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-lg" style="background: #111; border-top: 4px solid #ffeb3b !important;">
+                <div class="card-body p-4">
+                    <h5 class="mb-3 fw-bold" style="color: #ffeb3b;">Peças do Sistema</h5>
+                    <div class="input-group mb-3">
+                        <span class="input-group-text bg-dark border-secondary text-white"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control bg-dark text-white border-secondary" placeholder="Pesquisar peça..." @bind-value="searchTerm" @bind-value:event="oninput" />
+                    </div>
+
+                    <div style="max-height: 600px; overflow-y: auto;">
+                        <table class="table table-dark table-hover align-middle mb-0">
+                            <thead>
+                                <tr class="text-white-50 border-secondary">
+                                    <th>Peça</th>
+                                    <th class="text-center">Estoque</th>
+                                    <th class="text-center">Venda</th>
+                                    <th style="width: 50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (allProducts != null)
+                                {
+                                    @foreach (var p in filteredProducts)
+                                    {
+                                        bool jaEstaNaLista = itemsParaComprar.Any(i => i.Name == p.name);
+                                        <tr class="border-secondary">
+                                            <td>
+                                                <div class="fw-bold text-white">@p.name</div>
+                                                <small class="text-white-50">@p.code</small>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge @(p.stockQuantity <= 0 ? "bg-danger" : (p.stockQuantity <= 3 ? "bg-warning text-dark" : "bg-success text-white"))">
+                                                    @p.stockQuantity
+                                                </span>
+                                            </td>
+                                            <td class="text-center text-info fw-bold">
+                                                R$ @p.salePrice.ToString("N2")
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm @(jaEstaNaLista ? "btn-secondary opacity-50" : "btn-warning") fw-bold"
+                                                        @onclick="() => AddToList(p.name, p.salePrice)"
+                                                        disabled="@jaEstaNaLista">
+                                                    <i class="bi @(jaEstaNaLista ? "bi-check-lg" : "bi-plus-lg")"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-0 shadow-lg mb-4" style="background: #111; border-top: 4px solid #00ffff !important;">
+                <div class="card-body p-4 text-white">
+                    <h5 class="mb-3 fw-bold" style="color: #00ffff;">Item não cadastrado</h5>
+                    <div class="row g-2">
+                        <div class="col-7">
+                            <input type="text" class="form-control bg-dark text-white border-secondary" placeholder="Nome do item..." @bind="newItemName" />
+                        </div>
+                        <div class="col-3">
+                            <input type="number" class="form-control bg-dark text-white border-secondary" placeholder="Preço" @bind="newItemPrice" />
+                        </div>
+                        <div class="col-2">
+                            <button class="btn btn-info fw-bold w-100" @onclick="AddManualItem">ADD</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-lg" style="background: #111; border-top: 4px solid #ff6600 !important;">
+                <div class="card-header bg-transparent border-secondary d-flex justify-content-between align-items-center p-3 text-white">
+                    <h5 class="mb-0 fw-bold">Sua Lista</h5>
+                    <div class="text-end">
+                        <small class="text-white-50 d-block">Total Estimado</small>
+                        <span class="fw-bold text-warning">R$ @itemsParaComprar.Sum(i => i.Price).ToString("N2")</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-dark mb-0 table-sm">
+                        <thead>
+                            <tr class="text-white-50 border-secondary" style="font-size: 0.8rem;">
+                                <th class="ps-3 py-2">Item</th>
+                                <th style="width: 100px;">Preço Ref.</th>
+                                <th>Observação / Qtd</th>
+                                <th style="width: 40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!itemsParaComprar.Any())
+                            {
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-white-50">NENHUM ITEM SELECIONADO</td>
+                                </tr>
+                            }
+                            @foreach (var item in itemsParaComprar)
+                            {
+                                <tr class="border-secondary align-middle">
+                                    <td class="ps-3 text-white fw-bold">@item.Name</td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm bg-dark text-info border-0 fw-bold"
+                                               @bind="item.Price" @bind:event="oninput" />
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary"
+                                               placeholder="Obs..." @bind="item.Observation" />
+                                    </td>
+                                    <td class="pe-2 text-center">
+                                        <button class="btn btn-link text-danger p-0" @onclick="() => RemoverDaLista(item.Name)">
+                                            <i class="bi bi-trash3-fill"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <div class="p-3">
+                        <button class="btn btn-light w-100 fw-bold py-2" @onclick="ImprimirLista" disabled="@(!itemsParaComprar.Any())">
+                            <i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i>GERAR REQUISIÇÃO PARA VENDAS
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="print-section" class="d-none d-print-block" style="position: relative; width: 210mm; min-height: 297mm; background-color: white; color: black !important; padding: 20mm; font-family: Arial, sans-serif;">
+    <div style="border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 20px; text-align: center;">
+        <h1 style="margin: 0; font-size: 24pt;">FREITAS AUTOCENTER</h1>
+        <h3 style="margin: 5px 0; color: #333;">REQUISIÇÃO DE COMPRAS E VALORES</h3>
+        <p style="font-size: 10pt;">Data: @DateTime.Now.ToString("dd/MM/yyyy HH:mm")</p>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; color: black !important; margin-top: 10px;">
+        <thead>
+            <tr style="background-color: #f2f2f2;">
+                <th style="border: 1px solid black; padding: 10px; width: 50px;">[ OK ]</th>
+                <th style="border: 1px solid black; padding: 10px; text-align: left;">DESCRIÇÃO DO ITEM</th>
+                <th style="border: 1px solid black; padding: 10px; width: 120px;">VALOR REF.</th>
+                <th style="border: 1px solid black; padding: 10px; width: 150px;">QTD / OBS</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in itemsParaComprar)
+            {
+                <tr>
+                    <td style="border: 1px solid black; padding: 12px; text-align: center;">☐</td>
+                    <td style="border: 1px solid black; padding: 12px; font-weight: bold;">@item.Name</td>
+                    <td style="border: 1px solid black; padding: 12px; text-align: center;">R$ @item.Price.ToString("N2")</td>
+                    <td style="border: 1px solid black; padding: 12px; text-align: center;">@item.Observation</td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr style="background-color: #eee;">
+                <td colspan="2" style="border: 1px solid black; padding: 15px; text-align: right; font-weight: bold; font-size: 12pt;">TOTAL ESTIMADO DA REQUISIÇÃO:</td>
+                <td colspan="2" style="border: 1px solid black; padding: 15px; font-size: 14pt; font-weight: bold;">
+                    R$ @itemsParaComprar.Sum(i => i.Price).ToString("N2")
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<style>
+    @@media print {
+        body {
+            background-color: white !important;
+            margin: 0 !important;
+        }
+
+        .no-print {
+            display: none !important;
+        }
+
+        .d-print-block {
+            display: block !important;
+        }
+    }
+</style>
+
+@code {
+    public class ShoppingItem
+    {
+        public string Name { get; set; } = "";
+        public string Observation { get; set; } = "";
+        public decimal Price { get; set; }
+    }
+
+    public class LocalProduct
+    {
+        public string code { get; set; } = "";
+        public string name { get; set; } = "";
+        public int stockQuantity { get; set; }
+        public decimal salePrice { get; set; }
+    }
+
+    private List<LocalProduct> allProducts = new();
+    private List<ShoppingItem> itemsParaComprar = new();
+    private string searchTerm = "";
+    private string newItemName = "";
+    private decimal newItemPrice = 0;
+
+    private List<LocalProduct> filteredProducts => allProducts?
+        .Where(p => string.IsNullOrEmpty(searchTerm) || p.name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)).ToList() ?? new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { allProducts = await Http.GetFromJsonAsync<List<LocalProduct>>("https://localhost:7082/api/products") ?? new(); } catch { }
+    }
+
+    private void AddToList(string name, decimal price)
+    {
+        if (!itemsParaComprar.Any(i => i.Name == name)) itemsParaComprar.Add(new ShoppingItem { Name = name, Price = price });
+    }
+
+    private void AddManualItem()
+    {
+        if (!string.IsNullOrWhiteSpace(newItemName))
+        {
+            itemsParaComprar.Add(new ShoppingItem { Name = newItemName.ToUpper(), Price = newItemPrice });
+            newItemName = ""; newItemPrice = 0;
+        }
+    }
+
+    private void RemoverDaLista(string name) => itemsParaComprar.RemoveAll(i => i.Name == name);
+    private async Task ImprimirLista() => await JS.InvokeVoidAsync("window.print");
+}
